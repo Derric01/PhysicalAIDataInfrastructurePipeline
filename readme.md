@@ -165,5 +165,4 @@ See `WRITEUP.md` for detailed design decisions and trade-offs.
 ## Assessment Docs
 
 - `WRITEUP.md`: concise technical approach and decisions.
-- `DEEP_DIVE_ALIGNMENT.md`: full architecture walkthrough and requirement mapping.
 - `EXECUTIVE_SUMMARY.md`: reviewer-facing one-page submission summary.
