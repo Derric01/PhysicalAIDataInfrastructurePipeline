@@ -6,6 +6,8 @@
 
 # Python
 __pycache__/
+.pytest_cache/
+pytest-cache-files-*/
 *.py[cod]
 *$py.class
 *.so

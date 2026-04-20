@@ -1,29 +1,119 @@
-# Trekion.ai - Robotics Data Engineering Assessment
-**Candidate:** [Derric samson]
+# Trekion Robotics Sensor Pipeline
 
-## Overview
-This repository contains a complete data pipeline for parsing, synchronizing, and running visual inference on proprietary multi-modal robotics sensor data. The pipeline is broken down into three main tasks: binary extraction/synchronization, monocular depth estimation, and scene segmentation.
+Production-oriented Python pipeline for Trekion's multi-modal robotics data
+assessment: proprietary binary IMU parsing, video timestamp parsing, temporal
+synchronization, HUD visualization, monocular depth, and YOLO segmentation.
 
-## Task 1: Binary Format Parsing & Synchronization
-**Approach:**
-The raw `.imu` and `.vts` files utilized proprietary binary formats with no explicit documentation. I utilized hex inspection and Python's `struct` module to reverse-engineer the schemas.
-* **IMU File:** Identified an 8-byte `TRIMU001` header followed by a metadata block. The true data rows were discovered starting at offset `28`. The schema was unpacked as `<Q10f` (an 8-byte nanosecond timestamp followed by ten 32-bit floats representing Accel, Gyro, Mag, and Temp).
-* **VTS File:** Identified the `TRIVTS01` header, with data rows starting at offset `32`. The schema was unpacked as `<IQ` (a 4-byte frame index and an 8-byte microsecond timestamp).
+## Repository Layout
 
-**Synchronization Challenge:**
-While both files shared the same clock domain, they recorded in different units. The VTS recorded in microseconds, while the high-frequency IMU (568 Hz) recorded in nanoseconds. By applying a `1000x` scalar to the VTS timestamps, I was able to utilize `pandas.merge_asof` (nearest direction) to perfectly align the high-frequency telemetry with the 30 FPS camera frames.
+```text
+parsers/
+  imu_parser.py          # TRIMU001 binary parser and layout discovery
+  vts_parser.py          # TRIVTS01 binary parser and layout discovery
+sync/
+  synchronizer.py        # Linear interpolation sync and delay metrics
+models/
+  depth.py               # Depth Anything V2 video renderer
+  detection.py           # YOLOv8 segmentation renderer
+visualization/
+  hud.py                 # OpenCV HUD overlay
+  plots.py               # OpenCV scrolling plots
+video/
+  video_pipeline.py      # IMU HUD video renderer
+utils/
+  validation.py          # Timestamp normalization and checks
+  logging.py             # Logging setup
+main.py                  # CLI entrypoint
+tests/                   # Parser and sync tests
+```
 
-## Task 2: Monocular Dense Depth Estimation
-**Approach:**
-I implemented the `MiDaS_small` model via PyTorch Hub. The small variant was chosen for optimal CPU/GPU inference speed while maintaining highly accurate relative depth maps. 
-* **Visualization:** The depth maps were normalized to an 8-bit scale and colorized using OpenCV's `COLORMAP_INFERNO` to create a perceptually intuitive visualization of proximity. The output was horizontally stacked with the original RGB frame for side-by-side comparison.
+Legacy exploratory scripts are kept in the project root for reference, but
+`main.py` is the source-of-truth entrypoint.
 
-## Task 3: Object and Scene Segmentation
-**Approach:**
-I deployed Ultralytics `YOLOv8n-seg` (Nano Segmentation) for zero-shot object detection and pixel-level mask generation. 
-* **Model Limitations & Hallucinations:** Because the pre-trained YOLOv8 model is constrained to the 80 classes of the standard COCO dataset, it naturally misclassified domain-specific hardware. For example, the checkerboard calibration pattern was labeled as a "book," and a monitor stand as a "tv". 
+## Setup
 
-## Future Improvements for Production
-1.  **Custom Weights:** Fine-tune the YOLOv8 model on a custom dataset representing specific physical AI lab equipment (soldering irons, calibration boards, robotic chassis) rather than relying on COCO.
-2.  **Lens Calibration:** The wide-angle fisheye lens introduces notable barrel distortion. In a production environment, I would calculate the camera matrix and distortion coefficients using the visible checkerboard to undistort the frames *before* feeding them into the MiDaS depth model.
-3.  **Vectorized Graphing:** The current HUD overlay uses Matplotlib canvas rendering per-frame, which is computationally heavy. For real-time production rendering, the graphing logic should be ported to a vectorized solution or handled asynchronously.
+```bash
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Place the supplied files in `Givenfiles/`:
+
+```text
+Givenfiles/recording2.mp4
+Givenfiles/recording2.imu
+Givenfiles/recording2.vts
+```
+
+The segmentation pipeline expects `yolov8n-seg.pt` in the project root unless
+you pass `--weights`.
+
+## Usage
+
+Generate synchronized telemetry CSV and IMU HUD video:
+
+```bash
+python main.py --mode imu
+```
+
+Generate dense monocular depth video:
+
+```bash
+python main.py --mode depth
+```
+
+Generate segmentation video:
+
+```bash
+python main.py --mode seg
+```
+
+Run all outputs:
+
+```bash
+python main.py --mode all
+```
+
+Useful smoke-test options:
+
+```bash
+python main.py --mode imu --max-frames 5 --out-dir smoke_outputs
+python main.py --mode depth --max-frames 5 --out-dir smoke_outputs
+python main.py --mode seg --max-frames 5 --out-dir smoke_outputs
+```
+
+## Outputs
+
+```text
+synchronized_telemetry.csv
+sync_metrics.json
+imu_sync_output.mp4
+depth_output.mp4
+segmentation_output.mp4
+```
+
+## Validation
+
+```bash
+pytest
+```
+
+Expected parser facts for the provided dataset:
+
+```text
+IMU rows: 24938
+VTS/video frames: 1316
+IMU rate: about 568.4 Hz
+Camera rate: about 30.0 Hz
+Max nearest raw IMU delay: under 1 ms
+```
+
+## Notes
+
+- IMU synchronization uses linear interpolation at each video frame timestamp.
+  Nearest raw IMU samples are used only to report delay metrics.
+- The fisheye lens is not undistorted because no calibration matrix or
+  distortion coefficients were provided. This is documented in `WRITEUP.md`.
+- OpenCV frame count metadata is not trusted for this MP4; the renderer streams
+  frames until EOF and validates against the VTS frame sequence.

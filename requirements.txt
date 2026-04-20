@@ -1,13 +1,10 @@
-# Data Processing & Parsing
-pandas
 numpy
-
-# Computer Vision & Media
+pandas
 opencv-python
-matplotlib
-
-# Deep Learning & Segmentation
 torch
 torchvision
 timm
+transformers
+Pillow
 ultralytics
+pytest

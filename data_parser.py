@@ -60,12 +60,14 @@ if __name__ == "__main__":
     # 1. Parse the data
     vts_df = parse_vts('Givenfiles/recording2.vts')
     imu_df = parse_imu('Givenfiles/recording2.imu')
+    
     # 2. Prepare for Synchronization
     print("\n--- Starting Synchronization ---")
     
-    # FIX: Convert VTS microseconds to nanoseconds to match the IMU clock!
-    vts_df['timestamp'] = (vts_df['timestamp'] * 1000).astype('uint64')
+    # FIX: Force Pandas to treat both timestamps as exactly the same data type
+    vts_df['timestamp'] = vts_df['timestamp'].astype('uint64')
     imu_df['timestamp'] = imu_df['timestamp'].astype('uint64')
+    
     # merge_asof requires both dataframes to be strictly sorted by the timestamp
     vts_df = vts_df.sort_values('timestamp')
     imu_df = imu_df.sort_values('timestamp')

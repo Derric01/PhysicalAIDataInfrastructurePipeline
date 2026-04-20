@@ -1,0 +1,16 @@
+{
+  "frame_count": 1316,
+  "imu_sample_count": 24938,
+  "in_range_frame_count": 1316,
+  "mean_delay_ns": 461781.45592705166,
+  "median_delay_ns": 468708.5,
+  "max_delay_ns": 916708,
+  "mean_delay_ms": 0.46178145592705167,
+  "median_delay_ms": 0.4687085,
+  "max_delay_ms": 0.916708,
+  "imu_rate_hz": 568.4149900401407,
+  "camera_rate_hz": 30.000152552714905,
+  "sync_method": "linear_interpolation",
+  "imu_timestamp_unit": "ns",
+  "vts_timestamp_unit": "ns"
+}
